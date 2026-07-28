@@ -45,7 +45,7 @@ const SC={
   "Cancelado":{bg:"#F1F5F9",text:"#475569",dot:"#94A3B8"}
 };
 const BP=["#2563EB","#DB2777","#7C3AED","#D97706","#0D9488","#4F46E5","#059669","#DC2626"];
-const SO=["Entregue","Em transporte","Atrasado","Pendente","Cancelado"];
+const SO=["Em transporte","Atrasado","Pendente","Cancelado"];
 
 const now=new Date();
 function mondayOf(d){const w=d.getDay();return new Date(d.getFullYear(),d.getMonth(),d.getDate()-(w===0?6:w-1));}
@@ -78,6 +78,7 @@ function fmtD(d){return String(d.getDate()).padStart(2,"0")+"/"+String(d.getMont
 function fmtDS(d){return String(d.getDate()).padStart(2,"0")+"/"+String(d.getMonth()+1).padStart(2,"0");}
 function sameDay(a,b){return a.getDate()===b.getDate()&&a.getMonth()===b.getMonth()&&a.getFullYear()===b.getFullYear();}
 function colorMap(data){const buyers=[...new Set(data.map(d=>d.comprador))].sort();const m={};buyers.forEach((b,i)=>{m[b]=BP[i%BP.length];});return m;}
+function chartData(){return S.data.filter(d=>norm(d.recebido)!=="recebido");}
 
 // processCSV kept for legacy compat — delegates to processCSV_arr
 function processCSV(csv){
@@ -164,7 +165,7 @@ async function loadInitial(){S.loading=true;S.error=null;render();const rows=awa
 async function silentRefresh(){const rows=await fetchData();if(rows){S.data=rows;S.connected=true;S.lastSync=new Date();S.error=null;}else S.connected=false;render();}
 
 function getFS(){
-  let rows=S.data.slice();
+  let rows=chartData().slice();
   if(S.search){const q=norm(S.search);rows=rows.filter(r=>norm(r.requisicao).includes(q)||norm(r.descricao).includes(q)||norm(r.comprador).includes(q)||norm(r.setor).includes(q));}
   if(S.statusFilter!=="all")rows=rows.filter(r=>r.mappedStatus===S.statusFilter);
   if(S.buyerFilter!=="all")rows=rows.filter(r=>r.comprador===S.buyerFilter);
@@ -239,7 +240,7 @@ function rTabContent(){switch(S.tab){case"overview":return rOverview();case"cale
 
 // ── OVERVIEW ──
 function rOverview(){
-  const allData=S.data,cm=colorMap(allData);
+  const allData=chartData(),cm=colorMap(allData);
   const buyers=[...new Set(allData.map(d=>d.comprador))].sort();
 
   // Buyer counts for badges (always on full data)
@@ -309,9 +310,10 @@ function rOverview(){
 
 // ── CALENDAR ──
 function rCalendar(){
-  const allMonthData=S.data.filter(d=>d.date.getMonth()===S.month&&d.date.getFullYear()===S.year);
-  const buyers=[...new Set(S.data.map(d=>d.comprador))].sort();
-  const cm=colorMap(S.data);
+  const _cd=chartData();
+  const allMonthData=_cd.filter(d=>d.date.getMonth()===S.month&&d.date.getFullYear()===S.year);
+  const buyers=[...new Set(_cd.map(d=>d.comprador))].sort();
+  const cm=colorMap(_cd);
 
   // Contagem por comprador no mês
   const buyerCountMonth={};allMonthData.forEach(d=>{buyerCountMonth[d.comprador]=(buyerCountMonth[d.comprador]||0)+1;});
@@ -365,7 +367,7 @@ function rCalendar(){
 
 // ── WEEK ──
 function rWeek(){
-  const data=S.data,today=new Date(),cm=colorMap(data),wEnd=new Date(S.weekStart);wEnd.setDate(wEnd.getDate()+6);
+  const data=chartData(),today=new Date(),cm=colorMap(data),wEnd=new Date(S.weekStart);wEnd.setDate(wEnd.getDate()+6);
   let cols="";
   for(let i=0;i<7;i++){
     const d=new Date(S.weekStart);d.setDate(d.getDate()+i);const isT=sameDay(d,today);
@@ -382,7 +384,7 @@ function rWeek(){
 
 // ── LIST ──
 function rList(){
-  const data=S.data,cm=colorMap(data);
+  const data=chartData(),cm=colorMap(data);
   const HDRS=[{k:"date",l:"Data"},{k:"comprador",l:"Comprador"},{k:"requisicao",l:"Requisição"},{k:"descricao",l:"Descrição"},{k:"setor",l:"Setor"},{k:"status",l:"Status"},{k:"valor",l:"Valor"}];
   const filtered=getFS(),ps=10,tp=Math.max(1,Math.ceil(filtered.length/ps)),pg=Math.min(S.page,tp);
   const pr=filtered.slice((pg-1)*ps,pg*ps);const buyers=[...new Set(data.map(d=>d.comprador))].sort();
@@ -482,7 +484,7 @@ function bindDash(){
   // Open day modal (respects buyer filter)
   document.querySelectorAll("[data-openday]").forEach(el=>el.addEventListener("click",()=>{
     const d=+el.dataset.openday;
-    let entries=S.data.filter(e=>e.date.getDate()===d&&e.date.getMonth()===S.month&&e.date.getFullYear()===S.year);
+    let entries=chartData().filter(e=>e.date.getDate()===d&&e.date.getMonth()===S.month&&e.date.getFullYear()===S.year);
     if(S.calBuyerFilter!=="all")entries=entries.filter(e=>e.comprador===S.calBuyerFilter);
     entries.sort((a,b)=>a.date-b.date);
     if(entries.length){S.dayModal={entries,date:new Date(S.year,S.month,d)};render();}
